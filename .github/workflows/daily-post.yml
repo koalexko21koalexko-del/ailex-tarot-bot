@@ -1,8 +1,13 @@
-name: Ежедневный пост в Telegram
+name: Ежедневные посты в Telegram
 
 on:
   schedule:
-    - cron: "0 6 * * *"
+    # 7:00 МСК = 4:00 UTC
+    - cron: "0 4 * * *"
+    # 13:00 МСК = 10:00 UTC
+    - cron: "0 10 * * *"
+    # 19:00 МСК = 16:00 UTC
+    - cron: "0 16 * * *"
   workflow_dispatch:
 
 jobs:
@@ -32,23 +37,69 @@ jobs:
           import re
           from datetime import datetime
 
-          today = datetime.now().strftime("%d %B %Y")
+          # --- Определяем тип поста по времени ---
+          def get_post_type():
+              now = datetime.now()
+              hour = now.hour
+              # UTC time
+              if 3 <= hour < 7:
+                  return "morning"
+              elif 9 <= hour < 13:
+                  return "afternoon"
+              elif 15 <= hour < 19:
+                  return "evening"
+              else:
+                  return None  # не должен срабатывать
+
+          # --- Очистка текста от <think> и звёздочек ---
+          def clean_post_text(text):
+              cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+              cleaned = re.sub(r'\*\*', '', cleaned)
+              cleaned = re.sub(r'\*', '', cleaned)
+              cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
+              return cleaned
 
           github_token = os.environ.get("GITHUB_TOKEN")
           if not github_token:
               print("Ошибка: GITHUB_TOKEN не найден")
               sys.exit(1)
 
-          # --- Функция для очистки текста (удаляем <think> и звёздочки) ---
-          def clean_post_text(text):
-              cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-              cleaned = re.sub(r'\*\*', '', cleaned)   # убираем жирный шрифт
-              cleaned = re.sub(r'\*', '', cleaned)     # убираем курсив
-              cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
-              return cleaned
+          today = datetime.now().strftime("%d %B %Y")
+          post_type = get_post_type()
 
-          print("Генерация поста через GitHub Models...")
+          if post_type is None:
+              print("Неизвестное время запуска, пропускаем.")
+              sys.exit(0)
 
+          print(f"Генерация поста типа: {post_type}")
+
+          # --- Выбор промпта в зависимости от времени ---
+          if post_type == "morning":
+              user_prompt = (
+                  f"Сегодня {today}. Придумай пост для Telegram-канала с 'Картой дня'. "
+                  "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
+                  "Дай совет, на что обратить внимание. Сделай текст тёплым, философским, "
+                  "как разговор у камина. Текст — 150-200 слов. "
+                  "Не используй списки, инструкции и Markdown."
+              )
+          elif post_type == "afternoon":
+              user_prompt = (
+                  f"Сегодня {today}. Напиши короткий пост (50-80 слов) с советом дня. "
+                  "Возьми карту дня (ту же, что утром, или новую) и дай одну конкретную мысль, "
+                  "которая поможет подписчику в середине дня. Сделай текст вдохновляющим и прямым, "
+                  "как напоминание от друга. Не используй списки, инструкции и Markdown."
+              )
+          elif post_type == "evening":
+              user_prompt = (
+                  f"Сегодня {today}. Напиши вечерний пост (150-200 слов) с итогом дня. "
+                  "Сделай простой расклад на три карты: "
+                  "1) Что я приобрёл сегодня (энергия, знание, ощущение). "
+                  "2) Что я отпустил (страх, сомнение, усталость). "
+                  "3) Что благодарно принять. Опиши каждую карту через образы и чувства. "
+                  "Сделай текст уютным, как вечерний чай. Не используй списки, инструкции и Markdown."
+              )
+
+          # --- Запрос к GitHub Models ---
           url = "https://models.inference.ai.azure.com/chat/completions"
           headers = {
               "Authorization": f"Bearer {github_token}",
@@ -63,18 +114,12 @@ jobs:
                           "Ты — AiLex, таролог с 25-летним стажем. "
                           "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
                           "Твой стиль — образный, философский, как разговор у камина. "
-                          "Не используй списки, инструкции и не будь слишком 'учебным'. "
-                          "Не используй Markdown-разметку (звёздочки, подчёркивания и т.д.) в тексте."
+                          "Не используй списки, инструкции и Markdown-разметку."
                       )
                   },
                   {
                       "role": "user",
-                      "content": (
-                          f"Сегодня {today}. "
-                          "Придумай пост для канала с 'Картой дня'. "
-                          "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
-                          "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
-                      )
+                      "content": user_prompt
                   }
               ],
               "temperature": 0.7,
@@ -87,12 +132,12 @@ jobs:
               result = response.json()
               raw_text = result["choices"][0]["message"]["content"]
               post_text = clean_post_text(raw_text)
-              print("Пост сгенерирован и очищен.")
+              print("Пост сгенерирован.")
           except Exception as e:
               print(f"Ошибка при обращении к GitHub Models: {e}")
               sys.exit(1)
 
-          # --- Отправка в Telegram (без форматирования) ---
+          # --- Отправка в Telegram ---
           telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -104,13 +149,12 @@ jobs:
           payload = {
               "chat_id": chat_id,
               "text": post_text,
-              # "parse_mode" убран — текст будет обычным
           }
 
           response = requests.post(telegram_api_url, json=payload)
 
           if response.status_code == 200:
-              print("✅ Пост успешно отправлен в Telegram!")
+              print(f"✅ Пост типа '{post_type}' успешно отправлен в Telegram!")
           else:
               print(f"❌ Ошибка при отправке: {response.status_code}")
               print(response.text)
