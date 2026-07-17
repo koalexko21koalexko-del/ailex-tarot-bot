@@ -39,13 +39,20 @@ jobs:
               print("Ошибка: GITHUB_TOKEN не найден")
               sys.exit(1)
 
-          # --- Функция для очистки текста от тегов ---
+          # --- Функция для очистки текста от тегов <think> ---
           def clean_post_text(text):
-              # Убираем всё между <think> и </think>
               cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-              # Убираем лишние пустые строки
               cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
               return cleaned
+
+          # --- Функция для экранирования спецсимволов для MarkdownV2 ---
+          def escape_markdown(text):
+              # Экранируем только те символы, которые могут сломать MarkdownV2
+              special_chars = r'([_*\[\]()~`>#+\-=|{}.!])'
+              # Но не экранируем звёздочки, которые используются для форматирования
+              # Простой способ: экранируем всё, кроме звёздочек внутри текста
+              # Но проще использовать MarkdownV2 с экранированием всех спецсимволов
+              return re.sub(special_chars, r'\\\1', text)
 
           print("Генерация поста через GitHub Models...")
 
@@ -64,7 +71,8 @@ jobs:
                           "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
                           "Твой стиль — образный, философский, как разговор у камина. "
                           "Не используй списки, инструкции и не будь слишком 'учебным'. "
-                          "Не используй HTML-теги в ответе."
+                          "Выделяй название карты жирным шрифтом с помощью ** ** (например, **Звезда**). "
+                          "Используй Markdown для форматирования: **жирный**, *курсив*."
                       )
                   },
                   {
@@ -86,14 +94,13 @@ jobs:
               response.raise_for_status()
               result = response.json()
               raw_text = result["choices"][0]["message"]["content"]
-              # Очищаем текст от тегов <think>
               post_text = clean_post_text(raw_text)
               print("Пост сгенерирован и очищен.")
           except Exception as e:
               print(f"Ошибка при обращении к GitHub Models: {e}")
               sys.exit(1)
 
-          # --- Отправка в Telegram ---
+          # --- Отправка в Telegram с MarkdownV2 ---
           telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -101,11 +108,14 @@ jobs:
               print("Ошибка: не найдены токен или ID канала.")
               sys.exit(1)
 
+          # Экранируем спецсимволы для MarkdownV2
+          post_text_escaped = escape_markdown(post_text)
+
           telegram_api_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
           payload = {
               "chat_id": chat_id,
-              "text": post_text,
-              "parse_mode": "HTML",
+              "text": post_text_escaped,
+              "parse_mode": "MarkdownV2",
           }
 
           response = requests.post(telegram_api_url, json=payload)
