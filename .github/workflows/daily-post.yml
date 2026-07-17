@@ -18,72 +18,78 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install openai requests httpx
+        run: pip install requests
 
       - name: Create Python script
         run: |
           cat > post_generator.py << 'EOF'
-          import openai
           import requests
           import os
           import sys
+          import json
           from datetime import datetime
 
           today = datetime.now().strftime("%d %B %Y")
 
-          # Используем httpx клиент с явными настройками
-          import httpx
+          # --- Получаем токен GitHub из окружения ---
+          github_token = os.environ.get("GITHUB_TOKEN")
+          if not github_token:
+              print("Ошибка: GITHUB_TOKEN не найден")
+              sys.exit(1)
 
-          http_client = httpx.Client(
-              timeout=httpx.Timeout(30.0),
-              follow_redirects=True,
-          )
+          # --- Запрос к GitHub Models API (DeepSeek-R1) ---
+          print("Генерация поста через GitHub Models...")
 
-          client = openai.OpenAI(
-              api_key=os.environ.get("DEEPSEEK_API_KEY"),
-              base_url="https://api.deepseek.com/v1",
-              http_client=http_client,
-          )
+          url = "https://models.inference.github.com/chat/completions"
 
-          print("Генерация поста...")
+          headers = {
+              "Authorization": f"Bearer {github_token}",
+              "Content-Type": "application/json"
+          }
+
+          payload = {
+              "model": "deepseek-ai/DeepSeek-R1",
+              "messages": [
+                  {
+                      "role": "system",
+                      "content": (
+                          "Ты — AiLex, таролог с 25-летним стажем. "
+                          "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
+                          "Твой стиль — образный, философский, как разговор у камина. "
+                          "Не используй списки, инструкции и не будь слишком 'учебным'."
+                      )
+                  },
+                  {
+                      "role": "user",
+                      "content": (
+                          f"Сегодня {today}. "
+                          "Придумай пост для канала с 'Картой дня'. "
+                          "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
+                          "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
+                      )
+                  }
+              ],
+              "temperature": 0.7,
+              "max_tokens": 800
+          }
+
           try:
-              completion = client.chat.completions.create(
-                  model="deepseek-chat",
-                  messages=[
-                      {
-                          "role": "system",
-                          "content": (
-                              "Ты — AiLex, таролог с 25-летним стажем. "
-                              "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
-                              "Твой стиль — образный, философский, как разговор у камина. "
-                              "Не используй списки, инструкции и не будь слишком 'учебным'."
-                          )
-                      },
-                      {
-                          "role": "user",
-                          "content": (
-                              f"Сегодня {today}. "
-                              "Придумай пост для канала с 'Картой дня'. "
-                              "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
-                              "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
-                          )
-                      }
-                  ],
-                  temperature=0.7,
-                  stream=False
-              )
+              response = requests.post(url, headers=headers, json=payload, timeout=60)
+              response.raise_for_status()
+              result = response.json()
+              post_text = result["choices"][0]["message"]["content"]
+
+              if not post_text:
+                  print("Не удалось сгенерировать пост.")
+                  sys.exit(1)
+
+              print("Пост сгенерирован.")
+
           except Exception as e:
-              print(f"Ошибка при обращении к DeepSeek: {e}")
+              print(f"Ошибка при обращении к GitHub Models: {e}")
               sys.exit(1)
 
-          post_text = completion.choices[0].message.content
-
-          if not post_text:
-              print("Не удалось сгенерировать пост.")
-              sys.exit(1)
-
-          print("Пост сгенерирован.")
-
+          # --- Отправка в Telegram ---
           telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -112,6 +118,6 @@ jobs:
       - name: Run script
         run: python post_generator.py
         env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
