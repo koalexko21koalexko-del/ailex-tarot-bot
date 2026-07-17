@@ -18,7 +18,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install openai requests
+        run: pip install openai requests httpx
 
       - name: Create Python script
         run: |
@@ -31,12 +31,18 @@ jobs:
 
           today = datetime.now().strftime("%d %B %Y")
 
+          # Используем httpx клиент с явными настройками
+          import httpx
+
+          http_client = httpx.Client(
+              timeout=httpx.Timeout(30.0),
+              follow_redirects=True,
+          )
+
           client = openai.OpenAI(
               api_key=os.environ.get("DEEPSEEK_API_KEY"),
               base_url="https://api.deepseek.com/v1",
-              default_headers={
-                  "Content-Type": "application/json",
-              }
+              http_client=http_client,
           )
 
           print("Генерация поста...")
