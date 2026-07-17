@@ -29,6 +29,7 @@ jobs:
           import requests
           import os
           import sys
+          import re
           from datetime import datetime
 
           today = datetime.now().strftime("%d %B %Y")
@@ -38,9 +39,16 @@ jobs:
               print("Ошибка: GITHUB_TOKEN не найден")
               sys.exit(1)
 
+          # --- Функция для очистки текста от тегов ---
+          def clean_post_text(text):
+              # Убираем всё между <think> и </think>
+              cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+              # Убираем лишние пустые строки
+              cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
+              return cleaned
+
           print("Генерация поста через GitHub Models...")
 
-          # ИСПРАВЛЕННЫЙ URL
           url = "https://models.inference.ai.azure.com/chat/completions"
           headers = {
               "Authorization": f"Bearer {github_token}",
@@ -55,7 +63,8 @@ jobs:
                           "Ты — AiLex, таролог с 25-летним стажем. "
                           "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
                           "Твой стиль — образный, философский, как разговор у камина. "
-                          "Не используй списки, инструкции и не будь слишком 'учебным'."
+                          "Не используй списки, инструкции и не будь слишком 'учебным'. "
+                          "Не используй HTML-теги в ответе."
                       )
                   },
                   {
@@ -76,13 +85,15 @@ jobs:
               response = requests.post(url, headers=headers, json=payload, timeout=60)
               response.raise_for_status()
               result = response.json()
-              post_text = result["choices"][0]["message"]["content"]
-              print("Пост сгенерирован.")
+              raw_text = result["choices"][0]["message"]["content"]
+              # Очищаем текст от тегов <think>
+              post_text = clean_post_text(raw_text)
+              print("Пост сгенерирован и очищен.")
           except Exception as e:
               print(f"Ошибка при обращении к GitHub Models: {e}")
               sys.exit(1)
 
-          # --- Отправка в Telegram (код без изменений) ---
+          # --- Отправка в Telegram ---
           telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
