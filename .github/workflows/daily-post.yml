@@ -1,0 +1,105 @@
+name: Ежедневный пост в Telegram
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  post-to-telegram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install openai requests
+
+      - name: Create Python script
+        run: |
+          cat > post_generator.py << 'EOF'
+          import openai
+          import requests
+          import os
+          import sys
+          from datetime import datetime
+
+          today = datetime.now().strftime("%d %B %Y")
+
+          client = openai.OpenAI(
+              api_key=os.environ.get("DEEPSEEK_API_KEY"),
+              base_url="https://api.deepseek.com/v1",
+          )
+
+          print("Генерация поста...")
+          completion = client.chat.completions.create(
+              model="deepseek-chat",
+              messages=[
+                  {
+                      "role": "system",
+                      "content": (
+                          "Ты — AiLex, таролог с 25-летним стажем. "
+                          "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
+                          "Твой стиль — образный, философский, как разговор у камина. "
+                          "Не используй списки, инструкции и не будь слишком 'учебным'."
+                      )
+                  },
+                  {
+                      "role": "user",
+                      "content": (
+                          f"Сегодня {today}. "
+                          "Придумай пост для канала с 'Картой дня'. "
+                          "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
+                          "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
+                      )
+                  }
+              ],
+              temperature=0.7,
+              stream=False
+          )
+
+          post_text = completion.choices[0].message.content
+
+          if not post_text:
+              print("Не удалось сгенерировать пост.")
+              sys.exit(1)
+
+          print("Пост сгенерирован.")
+
+          telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+
+          if not telegram_token or not chat_id:
+              print("Ошибка: не найдены токен или ID канала.")
+              sys.exit(1)
+
+          telegram_api_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+          payload = {
+              "chat_id": chat_id,
+              "text": post_text,
+              "parse_mode": "HTML",
+          }
+
+          print("Отправка поста в канал...")
+          response = requests.post(telegram_api_url, json=payload)
+
+          if response.status_code == 200:
+              print("✅ Пост успешно отправлен в Telegram!")
+          else:
+              print(f"❌ Ошибка при отправке: {response.status_code}")
+              print(response.text)
+              sys.exit(1)
+          EOF
+
+      - name: Run script
+        run: python post_generator.py
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        
