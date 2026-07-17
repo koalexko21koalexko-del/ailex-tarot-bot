@@ -8,6 +8,9 @@ on:
 jobs:
   post-to-telegram:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      models: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,30 +29,25 @@ jobs:
           import requests
           import os
           import sys
-          import json
           from datetime import datetime
 
           today = datetime.now().strftime("%d %B %Y")
 
-          # --- Получаем токен GitHub из окружения ---
           github_token = os.environ.get("GITHUB_TOKEN")
           if not github_token:
               print("Ошибка: GITHUB_TOKEN не найден")
               sys.exit(1)
 
-          # --- Запрос к GitHub Models API (правильный адрес!) ---
           print("Генерация поста через GitHub Models...")
 
-          # <<<--- ИСПРАВЛЕННЫЙ URL --->>>
-          url = "https://models.github.ai/inference/chat/completions"
-
+          # ИСПРАВЛЕННЫЙ URL
+          url = "https://models.inference.ai.azure.com/chat/completions"
           headers = {
               "Authorization": f"Bearer {github_token}",
               "Content-Type": "application/json"
           }
-
           payload = {
-              "model": "deepseek-ai/DeepSeek-R1",
+              "model": "DeepSeek-R1",
               "messages": [
                   {
                       "role": "system",
@@ -79,18 +77,12 @@ jobs:
               response.raise_for_status()
               result = response.json()
               post_text = result["choices"][0]["message"]["content"]
-
-              if not post_text:
-                  print("Не удалось сгенерировать пост.")
-                  sys.exit(1)
-
               print("Пост сгенерирован.")
-
           except Exception as e:
               print(f"Ошибка при обращении к GitHub Models: {e}")
               sys.exit(1)
 
-          # --- Отправка в Telegram ---
+          # --- Отправка в Telegram (код без изменений) ---
           telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -105,7 +97,6 @@ jobs:
               "parse_mode": "HTML",
           }
 
-          print("Отправка поста в канал...")
           response = requests.post(telegram_api_url, json=payload)
 
           if response.status_code == 200:
@@ -119,6 +110,6 @@ jobs:
       - name: Run script
         run: python post_generator.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
