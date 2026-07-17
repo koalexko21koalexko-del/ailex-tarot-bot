@@ -37,10 +37,11 @@ jobs:
               print("Ошибка: GITHUB_TOKEN не найден")
               sys.exit(1)
 
-          # --- Запрос к GitHub Models API (DeepSeek-R1) ---
+          # --- Запрос к GitHub Models API (правильный адрес!) ---
           print("Генерация поста через GitHub Models...")
 
-          url = "https://models.inference.github.com/chat/completions"
+          # <<<--- ИСПРАВЛЕННЫЙ URL --->>>
+          url = "https://models.github.ai/inference/chat/completions"
 
           headers = {
               "Authorization": f"Bearer {github_token}",
