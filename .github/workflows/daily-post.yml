@@ -34,34 +34,41 @@ jobs:
           client = openai.OpenAI(
               api_key=os.environ.get("DEEPSEEK_API_KEY"),
               base_url="https://api.deepseek.com/v1",
+              default_headers={
+                  "Content-Type": "application/json",
+              }
           )
 
           print("Генерация поста...")
-          completion = client.chat.completions.create(
-              model="deepseek-chat",
-              messages=[
-                  {
-                      "role": "system",
-                      "content": (
-                          "Ты — AiLex, таролог с 25-летним стажем. "
-                          "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
-                          "Твой стиль — образный, философский, как разговор у камина. "
-                          "Не используй списки, инструкции и не будь слишком 'учебным'."
-                      )
-                  },
-                  {
-                      "role": "user",
-                      "content": (
-                          f"Сегодня {today}. "
-                          "Придумай пост для канала с 'Картой дня'. "
-                          "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
-                          "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
-                      )
-                  }
-              ],
-              temperature=0.7,
-              stream=False
-          )
+          try:
+              completion = client.chat.completions.create(
+                  model="deepseek-chat",
+                  messages=[
+                      {
+                          "role": "system",
+                          "content": (
+                              "Ты — AiLex, таролог с 25-летним стажем. "
+                              "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
+                              "Твой стиль — образный, философский, как разговор у камина. "
+                              "Не используй списки, инструкции и не будь слишком 'учебным'."
+                          )
+                      },
+                      {
+                          "role": "user",
+                          "content": (
+                              f"Сегодня {today}. "
+                              "Придумай пост для канала с 'Картой дня'. "
+                              "Выбери одну карту Таро и опиши её значение для сегодняшнего дня. "
+                              "Сделай текст тёплым, личным и вдохновляющим, на 200-300 слов."
+                          )
+                      }
+                  ],
+                  temperature=0.7,
+                  stream=False
+              )
+          except Exception as e:
+              print(f"Ошибка при обращении к DeepSeek: {e}")
+              sys.exit(1)
 
           post_text = completion.choices[0].message.content
 
@@ -102,4 +109,3 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        
