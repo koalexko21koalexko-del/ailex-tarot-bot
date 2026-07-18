@@ -37,19 +37,21 @@ jobs:
           import re
           from datetime import datetime
 
-          # --- Определяем тип поста по времени ---
+          # --- Определяем тип поста по времени (UTC) ---
           def get_post_type():
               now = datetime.now()
               hour = now.hour
-              # UTC time
-              if 3 <= hour < 7:
+              # 7:00 МСК = 4:00 UTC
+              if 4 <= hour < 7:
                   return "morning"
-              elif 9 <= hour < 13:
+              # 13:00 МСК = 10:00 UTC
+              elif 10 <= hour < 13:
                   return "afternoon"
-              elif 15 <= hour < 19:
+              # 19:00 МСК = 16:00 UTC
+              elif 16 <= hour < 19:
                   return "evening"
               else:
-                  return None  # не должен срабатывать
+                  return None
 
           # --- Очистка текста от <think> и звёздочек ---
           def clean_post_text(text):
