@@ -2,8 +2,8 @@ name: Ежедневные посты в Telegram
 
 on:
   schedule:
-    # 8:00 МСК = 5:00 UTC
-    - cron: "0 5 * * *"
+    # 7:00 МСК = 4:00 UTC
+    - cron: "0 4 * * *"
     # 13:00 МСК = 10:00 UTC
     - cron: "0 10 * * *"
     # 19:00 МСК = 16:00 UTC
@@ -41,8 +41,8 @@ jobs:
           def get_post_type():
               now = datetime.now()
               hour = now.hour
-              # 8:00 МСК = 5:00 UTC
-              if 5 <= hour < 8:
+              # 7:00 МСК = 4:00 UTC
+              if 4 <= hour < 7:
                   return "morning"
               # 13:00 МСК = 10:00 UTC
               elif 10 <= hour < 13:
