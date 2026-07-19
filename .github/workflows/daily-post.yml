@@ -41,13 +41,10 @@ jobs:
           def get_post_type():
               now = datetime.now()
               hour = now.hour
-              # 7:00 МСК = 4:00 UTC
               if 4 <= hour < 7:
                   return "morning"
-              # 13:00 МСК = 10:00 UTC
               elif 10 <= hour < 13:
                   return "afternoon"
-              # 19:00 МСК = 16:00 UTC
               elif 16 <= hour < 19:
                   return "evening"
               else:
@@ -61,6 +58,7 @@ jobs:
               cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
               return cleaned
 
+          # --- Получаем токен GitHub из окружения ---
           github_token = os.environ.get("GITHUB_TOKEN")
           if not github_token:
               print("Ошибка: GITHUB_TOKEN не найден")
