@@ -1,5 +1,6 @@
-name: Ежедневные посты в Telegram
 # Активация: 20 июля 2026
+name: Ежедневные посты в Telegram
+
 on:
   schedule:
     # 7:00 МСК = 4:00 UTC
