@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      models: read
+    models: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,9 +56,10 @@ jobs:
               cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned).strip()
               return cleaned
 
-          github_token = os.environ.get("GITHUB_TOKEN")
-          if not github_token:
-              print("Ошибка: GITHUB_TOKEN не найден")
+          # --- Токен OpenRouter ---
+          openrouter_token = os.environ.get("OPENROUTER_API_KEY")
+          if not openrouter_token:
+              print("Ошибка: OPENROUTER_API_KEY не найден")
               sys.exit(1)
 
           today = datetime.now().strftime("%d %B %Y")
@@ -93,18 +94,18 @@ jobs:
                   "Сделай текст уютным, как вечерний чай. Не используй списки, инструкции и Markdown."
               )
 
-          # --- Прямой запрос к GitHub Models ---
-          print("Отправка запроса к GitHub Models...")
+          # --- Запрос к OpenRouter ---
+          print("Отправка запроса к OpenRouter...")
 
-          url = "https://models.inference.ai.azure.com/chat/completions"
+          url = "https://openrouter.ai/api/v1/chat/completions"
 
           headers = {
-              "Authorization": f"Bearer {github_token}",
+              "Authorization": f"Bearer {openrouter_token}",
               "Content-Type": "application/json"
           }
 
           payload = {
-              "model": "DeepSeek-R1",
+              "model": "deepseek/deepseek-chat",
               "messages": [
                   {
                       "role": "system",
@@ -132,7 +133,7 @@ jobs:
               post_text = clean_post_text(raw_text)
               print("Пост сгенерирован.")
           except Exception as e:
-              print(f"Ошибка при обращении к GitHub Models: {e}")
+              print(f"Ошибка при обращении к OpenRouter: {e}")
               sys.exit(1)
 
           # --- Отправка в Telegram ---
@@ -162,6 +163,6 @@ jobs:
       - name: Run script
         run: python post_generator.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
