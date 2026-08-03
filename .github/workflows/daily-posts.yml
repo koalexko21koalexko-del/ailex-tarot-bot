@@ -37,21 +37,18 @@ jobs:
           import re
           from datetime import datetime
 
-          # --- Определяем тип поста по времени ---
+          # --- Определяем тип поста ---
           def get_post_type():
               now = datetime.now()
               hour = now.hour
-              # UTC time
-              if 3 <= hour < 7:
+              if 0 <= hour < 10:
                   return "morning"
-              elif 9 <= hour < 13:
+              elif 10 <= hour < 16:
                   return "afternoon"
-              elif 15 <= hour < 19:
-                  return "evening"
               else:
-                  return None  # не должен срабатывать
+                  return "evening"
 
-          # --- Очистка текста от <think> и звёздочек ---
+          # --- Очистка текста ---
           def clean_post_text(text):
               cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
               cleaned = re.sub(r'\*\*', '', cleaned)
@@ -67,13 +64,9 @@ jobs:
           today = datetime.now().strftime("%d %B %Y")
           post_type = get_post_type()
 
-          if post_type is None:
-              print("Неизвестное время запуска, пропускаем.")
-              sys.exit(0)
-
           print(f"Генерация поста типа: {post_type}")
 
-          # --- Выбор промпта в зависимости от времени ---
+          # --- Выбор промпта ---
           if post_type == "morning":
               user_prompt = (
                   f"Сегодня {today}. Придумай пост для Telegram-канала с 'Картой дня'. "
@@ -89,22 +82,27 @@ jobs:
                   "которая поможет подписчику в середине дня. Сделай текст вдохновляющим и прямым, "
                   "как напоминание от друга. Не используй списки, инструкции и Markdown."
               )
-          elif post_type == "evening":
+          else:
               user_prompt = (
                   f"Сегодня {today}. Напиши вечерний пост (150-200 слов) с итогом дня. "
                   "Сделай простой расклад на три карты: "
-                  "1) Что я приобрёл сегодня (энергия, знание, ощущение). "
-                  "2) Что я отпустил (страх, сомнение, усталость). "
-                  "3) Что благодарно принять. Опиши каждую карту через образы и чувства. "
+                  "1) Что я приобрёл сегодня. "
+                  "2) Что я отпустил. "
+                  "3) Что благодарно принять. "
+                  "Опиши каждую карту через образы и чувства. "
                   "Сделай текст уютным, как вечерний чай. Не используй списки, инструкции и Markdown."
               )
 
-          # --- Запрос к GitHub Models ---
+          # --- Прямой запрос к GitHub Models ---
+          print("Отправка запроса к GitHub Models...")
+
           url = "https://models.inference.ai.azure.com/chat/completions"
+
           headers = {
               "Authorization": f"Bearer {github_token}",
               "Content-Type": "application/json"
           }
+
           payload = {
               "model": "DeepSeek-R1",
               "messages": [
@@ -114,7 +112,7 @@ jobs:
                           "Ты — AiLex, таролог с 25-летним стажем. "
                           "Ты пишешь посты для Telegram-канала 'Школа Таро с AiLex'. "
                           "Твой стиль — образный, философский, как разговор у камина. "
-                          "Не используй списки, инструкции и Markdown-разметку."
+                          "Не используй списки, инструкции и Markdown."
                       )
                   },
                   {
